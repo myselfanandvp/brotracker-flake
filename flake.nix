@@ -26,7 +26,7 @@
           makeWrapper
         ];
 
-        # Standard Electron and X11/Wayland dependencies required by autoPatchelf
+        # Libraries the binaries are linked against (autoPatchelfHook resolves these)
         buildInputs = with pkgs; [
           stdenv.cc.cc.lib
           cairo
@@ -41,7 +41,6 @@
           libxcb
           libxkbcommon
           alsa-lib
-          rPackages.aspi
           vulkan-loader
           libGL
           nss
@@ -55,13 +54,22 @@
           systemd
         ];
 
+        # Libraries Electron/Chromium dlopen() at runtime. autoPatchelfHook adds
+        # these to the RPATH of every ELF it patches, so dlopen finds them.
         runtimeDependencies = with pkgs; [
-          systemd # For libudev if needed by Electron
+          systemd # libudev
           vulkan-loader
+          libGL
+          libnotify
+          libsecret
+          libpulseaudio
         ];
 
         dontConfigure = true;
         dontBuild = true;
+
+        # Prebuilt binaries: stripping is pointless and can damage Electron/native modules
+        dontStrip = true;
 
         unpackPhase = ''
           runHook preUnpack
@@ -74,27 +82,41 @@
 
           mkdir -p $out/bin $out/opt $out/share
 
-          if [ -d "opt" ]; then
+          if [ -d opt ]; then
             cp -r opt/* $out/opt/
           fi
-          [ -d usr/share ] && cp -r usr/share/* $out/share/
+          if [ -d usr/share ]; then
+            cp -r usr/share/* $out/share/
+          fi
 
-          BINARY_PATH=$(find $out/opt -type f -executable | head -n 1)
+          # Pick the real Electron binary deterministically: the largest executable
+          # that is not a shared object or one of Chromium's helper binaries.
+          # (`find | head -n 1` returns whatever the filesystem lists first.)
+          BINARY_PATH=$(
+            find $out/opt -type f -executable \
+              ! -name '*.so*' \
+              ! -name 'chrome-sandbox' \
+              ! -name 'chrome_crashpad_handler' \
+              -printf '%s\t%p\n' | sort -rn | head -n 1 | cut -f2-
+          )
 
           if [ -z "$BINARY_PATH" ]; then
-            echo "Error: Could not find any executable binary under opt/"
+            echo "Error: Could not find the main executable under opt/"
             exit 1
           fi
+          echo "Wrapping main binary: $BINARY_PATH"
 
           makeWrapper "$BINARY_PATH" $out/bin/brotracker \
             --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations}}" \
-            --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath finalAttrs.runtimeDependencies}"
+            --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath finalAttrs.runtimeDependencies}" \
+            --prefix PATH : "${lib.makeBinPath [ pkgs.xdg-utils ]}"
 
+          # Point the launcher entry at the *wrapper*, not the raw binary, so that
+          # launching from the app menu behaves exactly like running `brotracker`.
+          # Trailing arguments (%U, --no-sandbox, ...) are preserved.
           for f in $out/share/applications/*.desktop; do
-            if [ -f "$f" ]; then
-              substituteInPlace "$f" \
-                --replace-quiet "/opt/" "$out/opt/"
-            fi
+            [ -f "$f" ] || continue
+            sed -i -E 's#^Exec=("[^"]*"|[^ ]+)#Exec=brotracker#' "$f"
           done
 
           runHook postInstall
@@ -107,5 +129,10 @@
           sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
         };
       });
+
+      apps.${system}.default = {
+        type = "app";
+        program = lib.getExe self.packages.${system}.default;
+      };
     };
 }
