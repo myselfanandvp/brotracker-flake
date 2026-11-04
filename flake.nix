@@ -1,5 +1,5 @@
 {
-  description = "Nix Flake for Workfolio";
+  description = "Nix Flake for BroTracker";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -16,9 +16,8 @@
         version = "0.1.9";
 
         src = pkgs.fetchurl {
-          name = "brotracker-portal_0.1.9_amd64${finalAttrs.version}.deb";
           url = "https://brotracker-prod.blr1.digitaloceanspaces.com/portal/brotracker-portal_0.1.9_amd64.deb";
-          hash = "N6w+OZvA5RReuzlzbLo0noL2a8kIQaGBvkPJmOCRANlRXS9I72Z3MXbMteyJb48qRvcjtF8LvbQLUAK6pD8oMQ==";
+          hash = "sha256-pskszeu6WqgvyeA+hhya7W3nyFZLnCo6MgKxkJ4Ad3c=";
         };
 
         nativeBuildInputs = with pkgs; [
@@ -27,11 +26,38 @@
           makeWrapper
         ];
 
+        # Standard Electron and X11/Wayland dependencies required by autoPatchelf
         buildInputs = with pkgs; [
+          stdenv.cc.cc.lib
+          cairo
+          libX11
+          libXcomposite
+          libXdamage
+          libXext
+          libXfixes
+          libXrandr
+          mesa
+          expat
+          libxcb
+          libxkbcommon
+          alsa-lib
+          rPackages.aspi
+          vulkan-loader
+          libGL
+          nss
+          nspr
+          dbus
+          atk
+          at-spi2-atk
+          cups
+          gtk3
+          pango
+          systemd
         ];
 
-        # dlopen()'d at runtime, invisible to autoPatchelf's DT_NEEDED scan
         runtimeDependencies = with pkgs; [
+          systemd # For libudev if needed by Electron
+          vulkan-loader
         ];
 
         dontConfigure = true;
@@ -47,17 +73,28 @@
           runHook preInstall
 
           mkdir -p $out/bin $out/opt $out/share
-          cp -r opt/BroTracker$out/opt/BroTracker
+
+          if [ -d "opt" ]; then
+            cp -r opt/* $out/opt/
+          fi
           [ -d usr/share ] && cp -r usr/share/* $out/share/
 
-          makeWrapper $out/opt/BroTracker/brotracker$out/bin/brotracker\
+          BINARY_PATH=$(find $out/opt -type f -executable | head -n 1)
+
+          if [ -z "$BINARY_PATH" ]; then
+            echo "Error: Could not find any executable binary under opt/"
+            exit 1
+          fi
+
+          makeWrapper "$BINARY_PATH" $out/bin/brotracker \
             --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations}}" \
             --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath finalAttrs.runtimeDependencies}"
 
-          # Fix .desktop file to point at the wrapper
           for f in $out/share/applications/*.desktop; do
-            substituteInPlace "$f" \
-              --replace-quiet "/opt/BroTracker/brotracker" "$out/bin/brotracker"
+            if [ -f "$f" ]; then
+              substituteInPlace "$f" \
+                --replace-quiet "/opt/" "$out/opt/"
+            fi
           done
 
           runHook postInstall
@@ -66,7 +103,7 @@
         meta = {
           description = "BroTracker desktop app";
           platforms = [ "x86_64-linux" ];
-          mainProgram = "BroTracker";
+          mainProgram = "brotracker";
           sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
         };
       });
