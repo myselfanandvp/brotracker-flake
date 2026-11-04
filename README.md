@@ -18,19 +18,7 @@
 
 ## Installation & Usage
 
-### 1. Build locally
-
-Clone the repository and build:
-
-```bash
-git clone https://github.com/myselfanandvp/brotracker-flake
-cd brotracker-flake
-nix build
-```
-
-The binary will be at `./result/bin/brotracker`.
-
-### 2. Run without installing
+### 1. Run without installing
 
 ```bash
 nix run github:myselfanandvp/brotracker-flake
@@ -42,15 +30,13 @@ Or from a local checkout:
 nix run .
 ```
 
-### 3. Install on NixOS
+### 2. Install on NixOS
 
 Add the flake as an input in your system `flake.nix`:
 
 ```nix
 {
   inputs.brotracker.url = "github:myselfanandvp/brotracker-flake";
-  # Or use a local path:
-  # inputs.brotracker.url = "path:/home/anand/Projects/shells/brotracker";
 }
 ```
 
@@ -83,9 +69,3 @@ sudo nixos-rebuild switch --flake .#yourHostName
 | System       | `x86_64-linux`                   |
 
 ---
-
-## Updating to a new version
-
-1. Edit `version` and the `url` in `flake.nix`.
-2. Set `hash` to `lib.fakeHash` (or an empty string), run `nix build`, and copy the correct hash from the error message.
-3. Rebuild.
