@@ -63,6 +63,7 @@
           libnotify
           libsecret
           libpulseaudio
+          pipewire
         ];
 
         dontConfigure = true;
