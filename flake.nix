@@ -17,7 +17,7 @@
 
         src = pkgs.fetchurl {
           url = "https://brotracker-prod.blr1.digitaloceanspaces.com/portal/brotracker-portal_0.1.12_amd64.deb";
-          hash = "sha256-pskszeu6WqgvyeA+hhya7W3nyFZLnCo6MgKxkJ4Ad3c=";
+          hash = "sha256-3vwPk4KOhdT7qadFI2QGwUdkIfqkJ2CwSUiVSaHb3s0=";
         };
 
         nativeBuildInputs = with pkgs; [
