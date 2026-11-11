@@ -13,7 +13,7 @@
     {
       packages.${system}.default = pkgs.stdenv.mkDerivation (finalAttrs: {
         pname = "BroTracker";
-        version = "0.1.9";
+        version = "0.1.12";
 
         src = pkgs.fetchurl {
           url = "https://brotracker-prod.blr1.digitaloceanspaces.com/portal/brotracker-portal_0.1.12_amd64.deb";
