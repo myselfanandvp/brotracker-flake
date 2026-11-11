@@ -16,7 +16,7 @@
         version = "0.1.9";
 
         src = pkgs.fetchurl {
-          url = "https://brotracker-prod.blr1.digitaloceanspaces.com/portal/brotracker-portal_0.1.9_amd64.deb";
+          url = "https://brotracker-prod.blr1.digitaloceanspaces.com/portal/brotracker-portal_0.1.12_amd64.deb";
           hash = "sha256-pskszeu6WqgvyeA+hhya7W3nyFZLnCo6MgKxkJ4Ad3c=";
         };
 
